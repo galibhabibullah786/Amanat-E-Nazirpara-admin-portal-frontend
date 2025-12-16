@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Activity, Filter, Download, Search, ChevronRight, User, DollarSign, Image, Users, Settings, Trash2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button, Card, Badge, Avatar, Select } from '@/components/ui';
-import { mockActivity } from '@/lib/mock-data';
+import { activityApi } from '@/lib/api';
 import { getRelativeTime, formatDateTime } from '@/lib/utils';
 import type { ActivityLog } from '@/lib/types';
 
@@ -27,10 +27,26 @@ const typeColors: Record<string, string> = {
 };
 
 export default function ActivityPage() {
-  const [activities] = useState(mockActivity);
+  const [activities, setActivities] = useState<ActivityLog[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [expanded, setExpanded] = useState<number | null>(null);
+
+  // Fetch activities on mount
+  useEffect(() => {
+    const fetchActivities = async () => {
+      try {
+        const response = await activityApi.getAll({ limit: 100 });
+        setActivities((response as { data: ActivityLog[] }).data || []);
+      } catch (error) {
+        console.error('Failed to fetch activities:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchActivities();
+  }, []);
 
   const filteredActivities = activities.filter((activity) => {
     const matchesSearch = activity.action.toLowerCase().includes(search.toLowerCase()) ||

@@ -1,26 +1,50 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Users, ChevronDown, ChevronUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button, Card, Badge, Avatar } from '@/components/ui';
 import { ConfirmModal } from '@/components/ui/Modal';
 import { CommitteeFormModal, MemberFormModal } from '@/components/forms';
-import { mockCommittees, mockMembers } from '@/lib/mock-data';
+import { committeesApi } from '@/lib/api';
 import type { Committee, CommitteeMember } from '@/lib/types';
 import { useToast } from '@/lib/context';
 
 export default function CommitteesPage() {
-  const [committees, setCommittees] = useState(mockCommittees);
-  const [expandedCommittee, setExpandedCommittee] = useState<number | null>(4);
+  const [committees, setCommittees] = useState<Committee[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expandedCommittee, setExpandedCommittee] = useState<number | null>(null);
   const [committeeFormOpen, setCommitteeFormOpen] = useState(false);
   const [memberFormOpen, setMemberFormOpen] = useState(false);
   const [editingCommittee, setEditingCommittee] = useState<Committee | null>(null);
   const [editingMember, setEditingMember] = useState<CommitteeMember | null>(null);
-  const [selectedCommitteeId, setSelectedCommitteeId] = useState<number>(4);
+  const [selectedCommitteeId, setSelectedCommitteeId] = useState<number>(0);
   const [deleteCommitteeConfirm, setDeleteCommitteeConfirm] = useState<Committee | null>(null);
   const [deleteMemberConfirm, setDeleteMemberConfirm] = useState<CommitteeMember | null>(null);
   const { addToast } = useToast();
+
+  // Fetch committees on mount
+  useEffect(() => {
+    const fetchCommittees = async () => {
+      try {
+        const response = await committeesApi.getAll();
+        const data = (response as { data: Committee[] }).data || [];
+        setCommittees(data);
+        // Expand current committee by default
+        const current = data.find((c) => c.type === 'current');
+        if (current) {
+          setExpandedCommittee(current.id);
+          setSelectedCommitteeId(current.id);
+        }
+      } catch (error) {
+        console.error('Failed to fetch committees:', error);
+        addToast({ type: 'error', title: 'Failed to load committees' });
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCommittees();
+  }, [addToast]);
 
   const handleSaveCommittee = (data: Partial<Committee>) => {
     if (editingCommittee) {

@@ -1,24 +1,41 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Shield, ShieldCheck, ShieldX, Search, Mail, Phone } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button, Card, Badge, Avatar, Input } from '@/components/ui';
 import { ConfirmModal } from '@/components/ui/Modal';
 import { UserFormModal } from '@/components/forms';
-import { mockUsers } from '@/lib/mock-data';
+import { usersApi } from '@/lib/api';
 import { formatDateTime } from '@/lib/utils';
 import type { AdminUser } from '@/lib/types';
 import { useToast, useAuth } from '@/lib/context';
 
 export default function UsersPage() {
-  const [users, setUsers] = useState(mockUsers);
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [formOpen, setFormOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<AdminUser | null>(null);
   const { addToast } = useToast();
   const { user: currentUser } = useAuth();
+
+  // Fetch users on mount
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const response = await usersApi.getAll({ limit: 100 });
+        setUsers((response as { data: AdminUser[] }).data || []);
+      } catch (error) {
+        console.error('Failed to fetch users:', error);
+        addToast({ type: 'error', title: 'Failed to load users' });
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchUsers();
+  }, [addToast]);
 
   const filteredUsers = users.filter(
     (u) =>

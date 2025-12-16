@@ -1,16 +1,50 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Save, Upload, RefreshCw, Image } from 'lucide-react';
 import { Button, Card, Input, Textarea, Checkbox } from '@/components/ui';
-import { mockSettings } from '@/lib/mock-data';
+import { settingsApi } from '@/lib/api';
 import type { SiteSettings } from '@/lib/types';
 import { useToast } from '@/lib/context';
 
+const defaultSettings: SiteSettings = {
+  siteName: '',
+  tagline: '',
+  description: '',
+  phone: '',
+  email: '',
+  address: '',
+  socialLinks: {},
+  prayerTimes: {},
+  maintenanceMode: false,
+  showAnonymousDonors: true,
+  enableGallery: true,
+};
+
 export default function SettingsPage() {
-  const [settings, setSettings] = useState<SiteSettings>(mockSettings);
+  const [settings, setSettings] = useState<SiteSettings>(defaultSettings);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const originalSettings = useRef<SiteSettings>(defaultSettings);
   const { addToast } = useToast();
+
+  // Fetch settings on mount
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const response = await settingsApi.get();
+        const data = (response as { data: SiteSettings }).data || defaultSettings;
+        setSettings(data);
+        originalSettings.current = data;
+      } catch (error) {
+        console.error('Failed to fetch settings:', error);
+        addToast({ type: 'error', title: 'Failed to load settings' });
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSettings();
+  }, [addToast]);
 
   const handleChange = (field: keyof SiteSettings, value: unknown) => {
     setSettings((prev) => ({ ...prev, [field]: value }));
@@ -18,16 +52,38 @@ export default function SettingsPage() {
 
   const handleSave = async () => {
     setSaving(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    setSaving(false);
-    addToast({ type: 'success', title: 'Settings saved successfully' });
+    try {
+      await settingsApi.update(settings);
+      originalSettings.current = settings;
+      addToast({ type: 'success', title: 'Settings saved successfully' });
+    } catch (error) {
+      console.error('Failed to save settings:', error);
+      addToast({ type: 'error', title: 'Failed to save settings' });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleReset = () => {
-    setSettings(mockSettings);
-    addToast({ type: 'info', title: 'Settings reset to defaults' });
+    setSettings(originalSettings.current);
+    addToast({ type: 'info', title: 'Settings reset to last saved state' });
   };
+
+  if (loading) {
+    return (
+      <div className="space-y-6 max-w-4xl">
+        <div className="animate-pulse">
+          <div className="h-8 w-32 bg-gray-200 rounded mb-2"></div>
+          <div className="h-4 w-64 bg-gray-200 rounded mb-6"></div>
+          <div className="space-y-4">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="h-16 bg-gray-100 rounded-xl"></div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-4xl">

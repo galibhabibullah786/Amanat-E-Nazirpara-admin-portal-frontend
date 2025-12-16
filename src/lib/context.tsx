@@ -1,8 +1,8 @@
 'use client';
 
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
 import type { AdminUser, Toast } from './types';
-import { mockUser } from './mock-data';
+import { authApi, tokenManager } from './api';
 
 // ============================================
 // AUTH CONTEXT
@@ -13,30 +13,73 @@ interface AuthContextType {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AdminUser | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Check for existing session on mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      const token = tokenManager.getAccessToken();
+      if (token) {
+        try {
+          const response = await authApi.getProfile() as { data: AdminUser };
+          setUser(response.data);
+        } catch {
+          // Token invalid, clear it
+          tokenManager.clearTokens();
+        }
+      }
+      setIsLoading(false);
+    };
+    checkAuth();
+  }, []);
 
   const login = useCallback(async (email: string, password: string) => {
     setIsLoading(true);
-    await new Promise(r => setTimeout(r, 1000));
-    if (email === 'admin@amanat.org' && password === 'admin123') {
-      setUser(mockUser);
+    try {
+      const response = await authApi.login(email, password) as {
+        data: { user: AdminUser; accessToken: string };
+      };
+      
+      tokenManager.setAccessToken(response.data.accessToken);
+      setUser(response.data.user);
       setIsLoading(false);
       return true;
+    } catch (error) {
+      console.error('Login failed:', error);
+      setIsLoading(false);
+      return false;
     }
-    setIsLoading(false);
-    return false;
   }, []);
 
-  const logout = useCallback(() => setUser(null), []);
+  const logout = useCallback(async () => {
+    try {
+      await authApi.logout();
+    } catch {
+      // Ignore logout errors
+    }
+    tokenManager.clearTokens();
+    setUser(null);
+  }, []);
+
+  const refreshUser = useCallback(async () => {
+    try {
+      const response = await authApi.getProfile() as { data: AdminUser };
+      setUser(response.data);
+    } catch {
+      tokenManager.clearTokens();
+      setUser(null);
+    }
+  }, []);
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: !!user, isLoading, login, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

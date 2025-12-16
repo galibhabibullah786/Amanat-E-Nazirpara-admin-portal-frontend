@@ -1,23 +1,40 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Download, Edit, Trash2, MapPin, Ruler, User } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button, Card, Badge, Avatar } from '@/components/ui';
 import { DataTable } from '@/components/ui/DataTable';
 import { ConfirmModal } from '@/components/ui/Modal';
 import { LandDonorFormModal } from '@/components/forms';
-import { mockLandDonors } from '@/lib/mock-data';
+import { landDonorsApi } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import type { LandDonor } from '@/lib/types';
 import { useToast } from '@/lib/context';
 
 export default function LandDonorsPage() {
-  const [donors, setDonors] = useState(mockLandDonors);
+  const [donors, setDonors] = useState<LandDonor[]>([]);
+  const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [editingDonor, setEditingDonor] = useState<LandDonor | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<LandDonor | null>(null);
   const { addToast } = useToast();
+
+  // Fetch donors on mount
+  useEffect(() => {
+    const fetchDonors = async () => {
+      try {
+        const response = await landDonorsApi.getAll({ limit: 100 });
+        setDonors((response as { data: LandDonor[] }).data || []);
+      } catch (error) {
+        console.error('Failed to fetch land donors:', error);
+        addToast({ type: 'error', title: 'Failed to load land donors' });
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDonors();
+  }, [addToast]);
 
   // Calculate stats
   const totalLand = donors.reduce((sum, d) => sum + d.landAmount, 0);

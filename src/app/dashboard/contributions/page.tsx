@@ -1,20 +1,21 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Download, Filter, Search, MoreVertical, Edit, Trash2, CheckCircle, XCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button, Card, Badge, Input, Select, Avatar } from '@/components/ui';
 import { DataTable } from '@/components/ui/DataTable';
 import { ConfirmModal } from '@/components/ui/Modal';
 import { ContributionFormModal } from '@/components/forms';
-import { mockContributions } from '@/lib/mock-data';
+import { contributionsApi } from '@/lib/api';
 import { formatCurrency, formatDate, getStatusColor, getTypeColor } from '@/lib/utils';
 import { CONTRIBUTION_TYPES, CONTRIBUTION_STATUS } from '@/lib/constants';
 import type { Contribution } from '@/lib/types';
 import { useToast } from '@/lib/context';
 
 export default function ContributionsPage() {
-  const [contributions, setContributions] = useState(mockContributions);
+  const [contributions, setContributions] = useState<Contribution[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -23,6 +24,22 @@ export default function ContributionsPage() {
   const [editingContribution, setEditingContribution] = useState<Contribution | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<Contribution | null>(null);
   const { addToast } = useToast();
+
+  // Fetch contributions on mount
+  useEffect(() => {
+    const fetchContributions = async () => {
+      try {
+        const response = await contributionsApi.getAll({ limit: 100 });
+        setContributions((response as { data: Contribution[] }).data || []);
+      } catch (error) {
+        console.error('Failed to fetch contributions:', error);
+        addToast({ type: 'error', title: 'Failed to load contributions' });
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchContributions();
+  }, [addToast]);
 
   // Filter contributions
   const filteredContributions = contributions.filter((c) => {

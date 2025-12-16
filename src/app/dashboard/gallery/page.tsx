@@ -1,24 +1,41 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Star, Grid, List, Filter } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button, Card, Badge, Select } from '@/components/ui';
 import { ConfirmModal } from '@/components/ui/Modal';
 import { GalleryFormModal } from '@/components/forms';
-import { mockGallery } from '@/lib/mock-data';
+import { galleryApi } from '@/lib/api';
 import { GALLERY_CATEGORIES } from '@/lib/constants';
 import type { GalleryImage } from '@/lib/types';
 import { useToast } from '@/lib/context';
 
 export default function GalleryPage() {
-  const [images, setImages] = useState(mockGallery);
+  const [images, setImages] = useState<GalleryImage[]>([]);
+  const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [formOpen, setFormOpen] = useState(false);
   const [editingImage, setEditingImage] = useState<GalleryImage | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<GalleryImage | null>(null);
   const { addToast } = useToast();
+
+  // Fetch images on mount
+  useEffect(() => {
+    const fetchImages = async () => {
+      try {
+        const response = await galleryApi.getAll({ limit: 100 });
+        setImages((response as { data: GalleryImage[] }).data || []);
+      } catch (error) {
+        console.error('Failed to fetch gallery images:', error);
+        addToast({ type: 'error', title: 'Failed to load gallery' });
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchImages();
+  }, [addToast]);
 
   const filteredImages = images.filter((img) =>
     !categoryFilter || img.category === categoryFilter
